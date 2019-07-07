@@ -9,7 +9,6 @@ from utilities import *
 
 class PartitionPatch:
 
-
     def __init__(self, dimLength, dataNum, taus, lambdas, mus, variances):
         # Usage: Initialize the partition structure
         # Input:
@@ -23,21 +22,36 @@ class PartitionPatch:
 
         # generate boxes parameters: K x D x position: patchPara[k,d,p] indicates the initial position (p=0) or length (p=1) in d-th dimension for k-th box
 
-        self.patchNum = int(taus * np.prod(1 + lambdas * dimLength))  # number of boxes
+        # number of boxes
+        self.patchNum = int(taus * np.prod(1 + lambdas * dimLength) + 1)  
+        # self.patchNum = 1
 
+        # generating initial parameters of the boxes
         self.patchPara = patchPara_ini(self.patchNum, dimLength, lambdas)
+        
+        # assign value to each y hat of the box
         self.omegas = np.zeros(self.patchNum)
 
+        # mus: prior for the intensity variable
         self.mus = mus
+        
+        # variances: variance for the ydata
         self.variances = variances
 
+        # taus: paramter control the number of boxes
         self.tau = taus
+        
+        # lambdas: parameter control the size of boxes
         self.lambdas = lambdas
+        
+        # dimLength: length vector for each dimensions
         self.dimLength = dimLength
 
+        # number of dimensions
         self.dimNum = len(dimLength)
+        
+        # dataNum: number of data points
         self.dataNum = dataNum
-
 
 
     def Metropolis_Hastings_A(self, xdata, ydata):
@@ -45,17 +59,21 @@ class PartitionPatch:
         # Input:
         # Training data: xdata: N x D; ydata: N x 1
 
+        # total_judge: judge the belonging of each feature data
         t_val = self.total_judge(xdata)
 
-        for jj in np.arange(1, self.patchNum):
-
+        for jj in np.arange(1, self.patchNum): # iterate over each patch (box)
+            
             current_total_val = np.dot(t_val, self.omegas)
 
             temp_total_val_missing = current_total_val - t_val[:, jj] * self.omegas[jj]
 
             for dim_d in range(len(self.dimLength)):
-                for start_end_in in [0, 1]:
+                for start_end_in in [0, 1]: # either 0 or 1 to judge if data in box or not
+                    # propose to add another patch
                     proposal_patchPara_j = copy.copy(self.patchPara[jj])
+                    
+                    
                     if start_end_in == 0:
                         new_position = mh_continuous_propose(np.sum(self.patchPara[jj, dim_d]), self.dimLength[dim_d],
                                                              self.lambdas, start_end_in)
@@ -79,7 +97,6 @@ class PartitionPatch:
 
                     if (np.log(np.random.rand()) < (new_change_ll - old_change_ll)):
                         self.patchPara[jj] = proposal_patchPara_j
-
 
     def Metropolis_Hastings_omegas(self, xdata, ydata):
         # Usage: update the intensities \omega of the boxes
@@ -186,8 +203,9 @@ class PartitionPatch:
         # Input:
         # indicator matrix, size: N x K
 
-        lower = self.patchPara[:, :, 0]
-        upper = np.sum(self.patchPara, axis=2)
-        judges = (xdata[:, np.newaxis, :]>lower[np.newaxis, :, :])*(xdata[:, np.newaxis, :]<=upper[np.newaxis, :, :])
+        lower = self.patchPara[:, :, 0]             # lower corners of patches
+        upper = np.sum(self.patchPara, axis=2)      # upper corners of patches
+        judges = ((xdata[:, np.newaxis, :]>lower[np.newaxis, :, :])
+                 *(xdata[:, np.newaxis, :]<=upper[np.newaxis, :, :]))
 
         return np.prod(judges, axis=2).astype(bool)

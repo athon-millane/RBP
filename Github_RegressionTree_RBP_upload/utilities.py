@@ -90,7 +90,7 @@ def pre_process_data(xdata, ydata, train_test_ratio):
 
 
 def patchPara_ini(patchNum, dimLength, lambdas):
-
+    
     patchParas = np.zeros([patchNum, len(dimLength), 2])
 
     case_1 = 2

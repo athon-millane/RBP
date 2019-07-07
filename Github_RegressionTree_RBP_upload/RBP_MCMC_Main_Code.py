@@ -12,7 +12,7 @@ from sklearn import linear_model
 
 from utilities import *
 from partition_class import *
-from benchmark_comparison import *
+# from benchmark_comparison import *
 
 
 def Friedman_function_gen(dimNum,dataNum):
@@ -21,8 +21,15 @@ def Friedman_function_gen(dimNum,dataNum):
     # dimNum: number of dimensions for feature data
     # dataNum: number of data points
 
-    xdata = uniform.rvs(size=(dataNum, dimNum))
-    ydata = 10*np.sin(xdata[:, 0]*np.pi*xdata[:, 1])+20*((xdata[:, 2]-0.5)**2)+10*xdata[:, 3]+5*xdata[:, 4]+norm.rvs(size=dataNum)
+    # Sample from a uniform distribution
+    xdata = uniform.rvs(size=(dataNum, dimNum))  
+    
+    # Sample from a sin of the x data.
+    ydata = (10*np.sin(xdata[:, 0]*np.pi*xdata[:, 1])
+            + 20*((xdata[:, 2]-0.5)**2)
+            + 10*xdata[:, 3]
+            + 5*xdata[:, 4]
+            + norm.rvs(size=dataNum))   # sample from standard normal
 
     return xdata, ydata
 
@@ -38,18 +45,32 @@ def test_run():
 
 def run_mainfunction(dataNum, dimNum, lambdas, taus):
 
+    # Generate X and y training data (data)
     xdata, ydata = Friedman_function_gen(dimNum, dataNum)
+    
+    # Split the data into train and test with ratio 50/50
     train_test_ratio = 0.5 # the ratio of test data
-    xdata_train, ydata_train, xdata_test, ydata_test, ydata_train_mean, dd, hyper_sigma_1, hyper_sigma_2, variance_hat = pre_process_data(xdata, ydata, train_test_ratio)
+    
+    # preprocess data
+    (xdata_train, ydata_train,              # training set
+    xdata_test, ydata_test,                 # testing set
+    ydata_train_mean, dd,                   # mean
+    hyper_sigma_1, hyper_sigma_2,           # variance of the prior
+    variance_hat) = pre_process_data(xdata, ydata, train_test_ratio) # expected variance
 
-    dimLength = np.ones(dimNum)*1.0 # the length vector for all the dimensions
+    # the length vector for all the dimensions
+    dimLength = np.ones(dimNum)*1.0
 
-
+    # number of iterations to run algorithm
     IterationTime = 1000
 
+    # Initialise the RBP
     RBP = PartitionPatch(dimLength, dataNum, taus, lambdas, np.mean(ydata_train), variance_hat)
+    
+    # patchnum = int(taus * np.prod(1 + lambdas * dimLength))
     print('Expected number of boxes is: '+str(RBP.patchNum))
 
+    
     predicted_value_train_seq = np.zeros((IterationTime, len(ydata_train)))
     predicted_value_test_seq = np.zeros((IterationTime, len(ydata_test)))
     train_RMAE_seq = np.zeros(IterationTime)
@@ -69,7 +90,7 @@ def run_mainfunction(dataNum, dimNum, lambdas, taus):
         train_RMAE_seq[tt] = np.mean(abs(predicted_value_train_seq[tt]-ydata_train)*dd)
         test_RMAE_seq[tt] = np.mean(abs(predicted_value_test_seq[tt]-ydata_test)*dd)
         Numbox[tt] = RBP.patchNum
-        if np.mod(tt+1, 100)==0:
+        if np.mod(tt+1, 100)==0: # elementwise modulus operator
             print('============= Iteration '+str(tt+1) + ' finished. =============')
             print('Number of boxes is: '+ str(RBP.patchNum))
 
@@ -80,7 +101,7 @@ def run_mainfunction(dataNum, dimNum, lambdas, taus):
     print('RBP-RT last train: '+str(train_RMAE_seq[-1])+', test: '+str(test_RMAE_seq[-1]))
 
     print('RBP-RT train: '+str(final_RMAE_train)+', test: '+str(final_RMAE_test))
-    compare_table = benchmark_compare(xdata_train, xdata_test, ydata_train, ydata_test, dd)
+    # compare_table = benchmark_compare(xdata_train, xdata_test, ydata_train, ydata_test, dd)
 
     np.savez_compressed('result/trial_1.npz', xdata_train = xdata_train, xdata_test = xdata_test, ydata_train= ydata_train,
                         ydata_test=ydata_test, train_RMAE_seq=train_RMAE_seq, test_RMAE_seq = test_RMAE_seq,
